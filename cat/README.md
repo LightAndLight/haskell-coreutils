@@ -1,5 +1,10 @@
 From http://www.gnu.org/software/coreutils/manual/html_node/cat-invocation.html
 
+Note: optparse-applicative does not yet support composite flags, so each flag
+needs to be passed individually.
+
+eg. '-vET' must be passed as '-v -E -T'
+
 #cat
 
 cat copies each file (‘-’ means standard input), or standard input if none are given, to standard output. Synopsis:
