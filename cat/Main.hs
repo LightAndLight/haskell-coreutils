@@ -1,8 +1,6 @@
 import Control.Applicative      ((<$>),(<*>),(<|>),many)
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Reader
-import Data.Bits                (clearBit,testBit)
-import Data.Char                (chr,isControl,ord)
 import Data.Foldable            (traverse_)
 import Data.Maybe               (fromMaybe)
 import Data.Monoid              ((<>))
@@ -11,20 +9,22 @@ import Options.Applicative
 import System.IO                (Handle,hGetContents,hSetEncoding,IOMode(ReadMode),
                                 latin1,openFile,stdin)
 
-type Transformation = [String] -> [String]
+import Transformations
+
+type TransformOption = ReaderT Args Maybe Transformation
 
 data Args = Args {
     filePaths :: [FilePath]
-    , showAll :: Bool
-    , numberNonBlank :: Bool
+    , showAllFlag :: Bool
+    , numberNonBlankFlag :: Bool
     , eFlag :: Bool
-    , showEnds :: Bool
-    , numberAll :: Bool
-    , squeezeBlank :: Bool
+    , showEndsFlag :: Bool
+    , numberAllFlag :: Bool
+    , squeezeBlankFlag :: Bool
     , tFlag :: Bool
-    , showTabs :: Bool
+    , showTabsFlag :: Bool
     , uFlag :: Bool
-    , showNonPrinting :: Bool
+    , showNonPrintingFlag :: Bool
 }
 
 argsParser :: Parser Args
@@ -92,109 +92,62 @@ getFile fp = fmap lines $ do
     hGetContents h
 
 getFiles :: [FilePath] -> IO [String]
+getFiles [] = getStdin
 getFiles fps = fmap concat $ traverse getFile fps
 
-addLineNumber :: Int -> String -> String
-addLineNumber n s = '\t' : show n ++ " " ++ s
-
-nonBlankLineNumbers :: Transformation
-nonBlankLineNumbers = nblns 1 
-    where nblns _ [] = []
-          nblns n ("":xs) = "\t  " : nblns n xs
-          nblns n (x:xs) = addLineNumber n x : nblns (n + 1) xs
-
-allLineNumbers :: Transformation
-allLineNumbers xs = zipWith addLineNumber [1..length xs] xs
-
-toCaretNotation :: Char -> String
-toCaretNotation '\DEL' = "^?"
-toCaretNotation c = '^' : chr (ord '@' + ord c) : []
-
-showControlChars :: Transformation
-showControlChars = map (concatMap replaceControls)
-    where replaceControls c = if and [isControl c, c /= '\t', c /= '\n']
-            then toCaretNotation c
-            else return c
-
-showExtendedAscii :: Transformation
-showExtendedAscii = map (concatMap replaceExtended)
-    where replaceExtended c = if testBit (ord c) 7
-            then "M-" ++ (return . chr $ clearBit (ord c) 7)
-            else return c
-
-removeMultiNewlines :: Transformation
-removeMultiNewlines = rmnl False
-    where rmnl _ [] = []
-          rmnl b ("":xs) = if b
-            then rmnl True xs
-            else "" : rmnl True xs
-          rmnl _ (x:xs) = x : rmnl False xs
-
-displayTabs :: Transformation
-displayTabs = map replaceTabs
-    where replaceTabs [] = []
-          replaceTabs ('\t':xs) = '^' : 'I' : replaceTabs xs
-          replaceTabs xs = xs
-
-displayEnds :: Transformation
-displayEnds = map (++"$")
-
-displayAll :: Transformation
-displayAll = showControlChars . showExtendedAscii
-
-genSwitch :: (Args -> Bool) -> Transformation -> ReaderT Args Maybe Transformation
-genSwitch getter transform = do
+createOption :: (Args -> Bool) -> Transformation -> TransformOption
+createOption getter transform = do
     args <- ask
     if getter args 
         then return transform 
         else lift Nothing 
 
-showAllSwitch :: ReaderT Args Maybe Transformation
-showAllSwitch = genSwitch showAll (displayAll . displayEnds . displayTabs)
+showAllOption :: TransformOption
+showAllOption = createOption showAllFlag (showAll . showEnds . showTabs)
 
-numberNonBlankSwitch :: ReaderT Args Maybe Transformation
-numberNonBlankSwitch = genSwitch numberNonBlank nonBlankLineNumbers
+numberNonBlankOption :: TransformOption
+numberNonBlankOption = createOption numberNonBlankFlag showNonBlankLineNumbers
 
-eSwitch :: ReaderT Args Maybe Transformation
-eSwitch = genSwitch eFlag (displayAll . displayEnds)
+eOption :: TransformOption
+eOption = createOption eFlag (showAll . showEnds)
 
-showEndsSwitch :: ReaderT Args Maybe Transformation
-showEndsSwitch = genSwitch showEnds displayEnds
+showEndsOption :: TransformOption
+showEndsOption = createOption showEndsFlag showEnds
 
-numberAllSwitch :: ReaderT Args Maybe Transformation
-numberAllSwitch = genSwitch numberAll allLineNumbers
+numberAllOption :: TransformOption
+numberAllOption = createOption numberAllFlag showAllLineNumbers
 
-squeezeBlankSwitch :: ReaderT Args Maybe Transformation
-squeezeBlankSwitch = genSwitch squeezeBlank removeMultiNewlines
+squeezeBlankOption :: TransformOption
+squeezeBlankOption = createOption squeezeBlankFlag removeMultiNewlines
 
-tSwitch :: ReaderT Args Maybe Transformation
-tSwitch = genSwitch tFlag (displayAll . displayTabs)
+tOption :: TransformOption
+tOption = createOption tFlag (showAll . showTabs)
 
-showTabsSwitch :: ReaderT Args Maybe Transformation
-showTabsSwitch = genSwitch showTabs displayTabs
+showTabsOption :: TransformOption
+showTabsOption = createOption showTabsFlag showTabs
 
-showNonPrintingSwitch :: ReaderT Args Maybe Transformation
-showNonPrintingSwitch = genSwitch showNonPrinting displayAll
+showNonPrintingOption :: TransformOption
+showNonPrintingOption = createOption showNonPrintingFlag showAll
 
-transformFunctions :: [ReaderT Args Maybe Transformation]
-transformFunctions = [
-    showTabsSwitch
-    , numberNonBlankSwitch <|> numberAllSwitch
-    , showAllSwitch
-    , eSwitch
-    , showEndsSwitch
-    , squeezeBlankSwitch
-    , tSwitch
-    , showNonPrintingSwitch
+transformOptiones :: [TransformOption]
+transformOptiones = [
+    showTabsOption
+    , tOption
+    , numberNonBlankOption <|> numberAllOption
+    , showAllOption
+    , eOption
+    , showEndsOption
+    , squeezeBlankOption
+    , showNonPrintingOption
     ]
 
-transformLines :: ReaderT Args Maybe Transformation
-transformLines = foldl getTransformations (return id) transformFunctions
-    where getTransformations g f = (.) <$> (f <|> pure id) <*> g
+combinedOptiones :: TransformOption
+combinedOptiones = foldl composeTransformations (return id) transformOptiones
+    where composeTransformations g f = (.) <$> (f <|> pure id) <*> g
 
 cat :: Args -> [String] -> [String]
 cat args xs = transformFunction xs
-    where transformFunction = fromMaybe id $ runReaderT transformLines args
+    where transformFunction = fromMaybe id $ runReaderT combinedOptiones args
  
 main = do
     args <- execParser opts
