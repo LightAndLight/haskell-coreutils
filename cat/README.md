@@ -1,43 +1,49 @@
-From [http://www.gnu.org/software/coreutils/manual/html_node/cat-invocation.html]
+From http://www.gnu.org/software/coreutils/manual/html_node/cat-invocation.html
+
+#cat
 
 cat copies each file (‘-’ means standard input), or standard input if none are given, to standard output. Synopsis:
 
-cat [option] [file]…
+`cat [option] [file]…`
+
 The program accepts the following options.
 
-‘-A’
-‘--show-all’
-Equivalent to -vET.
+**‘-A’** **‘--show-all’**
 
-‘-b’
-‘--number-nonblank’
-Number all nonempty output lines, starting with 1.
+  Equivalent to -vET.&nbsp;
 
-‘-e’
-Equivalent to -vE.
+**‘-b’** **‘--number-nonblank’**
 
-‘-E’
-‘--show-ends’
-Display a ‘$’ after the end of each line.
+  Number all nonempty output lines, starting with 1.&nbsp; 
+  
+**‘-e’**
 
-‘-n’
-‘--number’
-Number all output lines, starting with 1. This option is ignored if -b is in effect.
+  Equivalent to -vE.&nbsp;
 
-‘-s’
-‘--squeeze-blank’
-Suppress repeated adjacent empty lines; output just one empty line instead of several.
+**‘-E’** **‘--show-ends’**
 
-‘-t’
-Equivalent to -vT.
+  Display a ‘$’ after the end of each line.&nbsp;
 
-‘-T’
-‘--show-tabs’
-Display TAB characters as ‘^I’.
+**‘-n’** **‘--number’**
 
-‘-u’
-Ignored; for POSIX compatibility.
+  Number all output lines, starting with 1. This option is ignored if -b is in effect.&nbsp;
 
-‘-v’
-‘--show-nonprinting’
-Display control characters except for LFD and TAB using ‘^’ notation and precede characters that have the high bit set with ‘M-’.
+**‘-s’** **‘--squeeze-blank’**
+
+  Suppress repeated adjacent empty lines; output just one empty line instead of several.&nbsp;
+
+**‘-t’**
+
+  Equivalent to -vT.&nbsp;
+
+**‘-T’** **‘--show-tabs’**
+
+  Display TAB characters as ‘^I’.&nbsp;
+
+**‘-u’**
+
+  Ignored; for POSIX compatibility.&nbsp;
+
+**‘-v’** **‘--show-nonprinting’**
+
+  Display control characters except for LFD and TAB using ‘^’ notation and precede characters that have the high bit set with ‘M-’.
