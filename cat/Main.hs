@@ -78,22 +78,19 @@ opts = info (helper <*> argsParser)
     <> progDesc "Copy FILENAME (or '-' for stdin) to stdout"
     <> header "cat - copies contents of files to stdout" )
 
-printAll :: [String] -> IO ()
-printAll = traverse_ putStrLn
+getStdin :: IO String
+getStdin = hSetEncoding stdin latin1 >> getContents
 
-getStdin :: IO [String]
-getStdin = fmap lines $ hSetEncoding stdin latin1 >> getContents
-
-getFile :: FilePath -> IO [String]
+getFile :: FilePath -> IO String
 getFile "-" = getStdin
-getFile fp = fmap lines $ do
+getFile fp = do
     h <- openFile fp ReadMode
     hSetEncoding h latin1
     hGetContents h
 
 getFiles :: [FilePath] -> IO [String]
-getFiles [] = getStdin
-getFiles fps = fmap concat $ traverse getFile fps
+getFiles [] = fmap pure getStdin
+getFiles fps = traverse getFile fps
 
 createOption :: (Args -> Bool) -> Transformation -> TransformOption
 createOption getter transform = do
@@ -152,5 +149,5 @@ cat args xs = transformFunction xs
 main = do
     args <- execParser opts
     let fps = filePaths args
-    contents <- getFiles fps 
-    printAll $ cat args contents
+    contents <- concat <$> (map lines <$> getFiles fps)
+    traverse_ putStrLn $ cat args contents
