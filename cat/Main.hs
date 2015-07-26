@@ -126,8 +126,8 @@ showTabsOption = createOption showTabsFlag showTabs
 showNonPrintingOption :: TransformOption
 showNonPrintingOption = createOption showNonPrintingFlag showAll
 
-transformOptiones :: [TransformOption]
-transformOptiones = [
+transformOptions :: [TransformOption]
+transformOptions = [
     showTabsOption
     , tOption
     , numberNonBlankOption <|> numberAllOption
@@ -138,13 +138,13 @@ transformOptiones = [
     , showNonPrintingOption
     ]
 
-combinedOptiones :: TransformOption
-combinedOptiones = foldl composeTransformations (return id) transformOptiones
+combinedOptions :: TransformOption
+combinedOptions = foldl composeTransformations (return id) transformOptions
     where composeTransformations g f = (.) <$> (f <|> pure id) <*> g
 
 cat :: Args -> [String] -> [String]
 cat args xs = transformFunction xs
-    where transformFunction = fromMaybe id $ runReaderT combinedOptiones args
+    where transformFunction = fromMaybe id $ runReaderT combinedOptions args
  
 main = do
     args <- execParser opts
